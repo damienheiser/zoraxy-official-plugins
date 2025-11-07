@@ -1,0 +1,129 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>ZeroTier Advanced</title>
+  <style>
+    body{font-family:system-ui, sans-serif; max-width: 980px; margin: 24px auto;}
+    fieldset{margin:16px 0;padding:12px}
+    label{display:block;margin:6px 0}
+    input[type=text]{width:100%;padding:6px}
+    .row{display:flex;gap:12px}
+    .row > div{flex:1}
+    button{padding:8px 12px}
+    code{background:#f4f4f4;padding:2px 4px}
+  </style>
+</head>
+<body>
+<h2>Advanced Network Settings</h2>
+
+<label>Network ID <input id="netid" placeholder="xxxxxxxxxxxxxxxx"/></label>
+
+<fieldset>
+  <legend>Addressing</legend>
+  <div class="row">
+    <div><label>CIDR <input id="cidr" placeholder="10.11.222.0/24"></label></div>
+    <div><label>IP Start <input id="ipStart" placeholder="10.11.222.10"></label></div>
+    <div><label>IP End <input id="ipEnd" placeholder="10.11.222.250"></label></div>
+  </div>
+</fieldset>
+
+<fieldset>
+  <legend>DNS & DHCP</legend>
+  <label><input type="checkbox" id="allowDNS"> Allow DNS</label>
+  <label>DNS Servers (comma) <input id="dnsServers" placeholder="10.11.222.53,1.1.1.1"></label>
+  <label>DNS Domain <input id="dnsDomain" placeholder="lan"></label>
+  <label><input type="checkbox" id="allowDHCP"> Allow DHCP through rules</label>
+</fieldset>
+
+<fieldset>
+  <legend>IPv6</legend>
+  <label><input type="checkbox" id="v6zt"> Assign ZT IPv6</label>
+  <label><input type="checkbox" id="v6rfc"> RFC4193</label>
+  <label><input type="checkbox" id="v66p"> 6plane</label>
+</fieldset>
+
+<fieldset>
+  <legend>Multicast & mDNS</legend>
+  <label><input type="checkbox" id="broadcast"> Enable Broadcast</label>
+  <label>Multicast limit <input id="mlimit" value="64"></label>
+  <label><input type="checkbox" id="mdns"> Allow mDNS</label>
+</fieldset>
+
+<fieldset>
+  <legend>Static Routes</legend>
+  <label>Routes (one per line): <textarea id="routes" rows="4" placeholder="10.0.0.0/24 via 10.11.222.1&#10;172.16.0.0/16"></textarea></label>
+</fieldset>
+
+<fieldset>
+  <legend>Traffic Policy (Rules)</legend>
+  <label>Rules Source <textarea id="rules" rows="8" placeholder="accept; // or paste your policy"></textarea></label>
+</fieldset>
+
+<p>
+  <button onclick="save()">Save Advanced Settings</button>
+</p>
+
+<hr>
+
+<h3>Controller Bridge</h3>
+<div class="row">
+  <div><label>Uplink Interface <input id="uplink" placeholder="eth0"></label></div>
+  <div><label>ZT Interface override (optional) <input id="ztif" placeholder="ztxxxxxxxxxxxxxxxx"></label></div>
+</div>
+<label><input type="checkbox" id="hostOnly"> Only apply sysctl (don’t enslave uplink)</label>
+<p><button onclick="bridge()">Enable Controller Bridge</button></p>
+
+<pre id="out"></pre>
+
+<script>
+function parseRoutes(txt){
+  return txt.split(/\n+/).map(s=>s.trim()).filter(Boolean).map(line=>{
+    const parts = line.split(/\s+/);
+    if(parts.length>=3 && parts[1].toLowerCase()==="via"){
+      return {target:parts[0], via:parts[2]};
+    }
+    return {target:parts[0]};
+  });
+}
+async function save(){
+  const netid = document.getElementById('netid').value.trim();
+  const b = {
+    cidr:     document.getElementById('cidr').value.trim(),
+    ipStart:  document.getElementById('ipStart').value.trim(),
+    ipEnd:    document.getElementById('ipEnd').value.trim(),
+    allowDNS: document.getElementById('allowDNS').checked,
+    dnsServers: document.getElementById('dnsServers').value.split(',').map(s=>s.trim()).filter(Boolean),
+    dnsDomain: document.getElementById('dnsDomain').value.trim(),
+    allowDHCP: document.getElementById('allowDHCP').checked,
+    ipv6: {
+      zt: document.getElementById('v6zt').checked,
+      rfc4193: document.getElementById('v6rfc').checked,
+      "6plane": document.getElementById('v66p').checked
+    },
+    enableBroadcast: document.getElementById('broadcast').checked,
+    multicastLimit: parseInt(document.getElementById('mlimit').value||"64"),
+    allowMDNS: document.getElementById('mdns').checked,
+    routes: parseRoutes(document.getElementById('routes').value),
+    rulesSource: document.getElementById('rules').value
+  };
+  const resp = await fetch("/api/ztnc/net/advanced/update?netid="+encodeURIComponent(netid), {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify(b)
+  });
+  document.getElementById('out').textContent = (resp.ok ? "Saved." : "Error: "+resp.status);
+}
+async function bridge(){
+  const netid = document.getElementById('netid').value.trim();
+  const fd = new URLSearchParams();
+  fd.set("netid", netid);
+  fd.set("uplink", document.getElementById('uplink').value.trim());
+  fd.set("ztif", document.getElementById('ztif').value.trim());
+  if(document.getElementById('hostOnly').checked) fd.set("hostOnly","true");
+  const resp = await fetch("/api/ztnc/net/advanced/bridge_controller", {method:"POST", body:fd});
+  document.getElementById('out').textContent = (resp.ok ? "Bridge enabled." : "Error: "+resp.status);
+}
+</script>
+</body>
+</html>
