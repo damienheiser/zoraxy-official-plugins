@@ -1,0 +1,12 @@
+[Unit]
+Description=ZeroTier Ethernet Bridge for %i
+After=network-online.target zerotier-one.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/zt-bridge-setup.sh %i %I
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
