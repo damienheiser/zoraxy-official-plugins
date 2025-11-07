@@ -51,6 +51,34 @@ func main() {
 		panic(err)
 	}
 
+		// Basic server (same pattern as example plugin)
+	mgr := ganserv.NewNetworkManager() // uses env/ini for token/port
+	mux := http.NewServeMux()
+
+	// existing endpoints (from original example)
+	mux.HandleFunc("/api/ztnc/net/list", mgr.HandleListNetwork)
+	mux.HandleFunc("/api/ztnc/net/add", mgr.HandleAddNetwork)
+	mux.HandleFunc("/api/ztnc/net/remove", mgr.HandleRemoveNetwork)
+	mux.HandleFunc("/api/ztnc/net/ranges", mgr.HandleSetRanges)
+	mux.HandleFunc("/api/ztnc/mem/list", mgr.HandleMemberList)
+	mux.HandleFunc("/api/ztnc/mem/authorize", mgr.HandleMemberAuthorization)
+	mux.HandleFunc("/api/ztnc/mem/ip", mgr.HandleMemberIP)
+	mux.HandleFunc("/api/ztnc/mem/name", mgr.HandleMemberNaming)
+	mux.HandleFunc("/api/ztnc/mem/del", mgr.HandleMemberDelete)
+	mux.HandleFunc("/api/ztnc/server/join", mgr.HandleServerJoinNetwork)
+	mux.HandleFunc("/api/ztnc/server/leave", mgr.HandleServerLeaveNetwork)
+	mux.HandleFunc("/api/ztnc/net/details", mgr.HandleNetworkDetails)
+	mux.HandleFunc("/api/ztnc/net/name", mgr.HandleNetworkNaming)
+	mux.HandleFunc("/api/ztnc/node/id", mgr.HandleGetNodeID)
+
+	// new advanced endpoints
+	mux.HandleFunc("/api/ztnc/net/advanced/update", mgr.HandleAdvancedUpdate)
+	mux.HandleFunc("/api/ztnc/net/advanced/bridge_controller", mgr.HandleSetControllerBridge)
+
+	// static web (existing + advanced)
+	mux.Handle("/", utils.EmbedFSHandler()) // serves web/*
+	http.ListenAndServe("127.0.0.1:7777", mux)
+
 	// Create a new PluginEmbedUIRouter that will serve the UI from web folder
 	uiRouter := plugin.NewPluginEmbedUIRouter(PLUGIN_ID, &content, EMBED_FS_ROOT, UI_RELPATH)
 	uiRouter.EnableDebug = true
